@@ -270,14 +270,12 @@ function applyRemoteCommand(message) {
     switch (message.type) {
 
       case 'SEEK': {
-        const latency = (Date.now() - message.payload.timestamp) / 1000;
-        videoElement.currentTime = message.payload.currentTime + latency + offsetSec;
+        videoElement.currentTime = message.payload.currentTime + offsetSec;
         break;
       }
 
       case 'PLAY': {
-        const latency = (Date.now() - message.payload.timestamp) / 1000;
-        videoElement.currentTime = message.payload.currentTime + latency + offsetSec;
+        videoElement.currentTime = message.payload.currentTime + offsetSec;
         videoElement.play();
         break;
       }
@@ -289,9 +287,7 @@ function applyRemoteCommand(message) {
       }
 
       case 'SYNC_STATE': {
-        const latency = (Date.now() - message.payload.timestamp) / 1000;
-        videoElement.currentTime = message.payload.currentTime
-            + (message.payload.isPlaying ? latency : 0) + offsetSec;
+        videoElement.currentTime = message.payload.currentTime + offsetSec;
 
         if (message.payload.isPlaying) {
           videoElement.play();

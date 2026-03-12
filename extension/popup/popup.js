@@ -198,7 +198,7 @@ chrome.runtime.onMessage.addListener((message) => {
  */
 function updateOffset(newMs, source) {
   // 限制范围
-  newMs = Math.max(-500, Math.min(500, newMs));
+  newMs = Math.max(-1000, Math.min(1000, newMs));
 
   // 计算与上次的差值，实时应用到视频进度
   const deltaMs = newMs - lastOffsetMs;
