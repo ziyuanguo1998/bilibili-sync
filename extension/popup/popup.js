@@ -2,9 +2,10 @@
  * popup.js —— 扩展弹窗交互逻辑
  *
  * 负责弹窗 UI 的所有交互行为：
- * 1. 加入/退出房间
+ * 1. 加入/退出房间（选择房主/客人身份）
  * 2. 显示连接状态和在线人数
  * 3. 服务器地址配置
+ * 4. 客人端时间偏移量调节
  *
  * 与 service worker 通过 chrome.runtime.sendMessage 通信
  */
@@ -19,12 +20,17 @@ const roomInput = document.getElementById('room-input');
 const joinBtn = document.getElementById('join-btn');
 const leaveBtn = document.getElementById('leave-btn');
 const roomName = document.getElementById('room-name');
+const roleDisplay = document.getElementById('role-display');
 const peerCountEl = document.getElementById('peer-count');
 const errorMsg = document.getElementById('error-msg');
 const serverUrlInput = document.getElementById('server-url');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
+const offsetSection = document.getElementById('offset-section');
 const offsetSlider = document.getElementById('offset-slider');
 const offsetInput = document.getElementById('offset-input');
+
+/** 当前身份：'host' 或 'guest' */
+let currentRole = 'host';
 
 /** 记录上一次偏移量，用于计算差值 */
 let lastOffsetMs = 0;
@@ -41,7 +47,7 @@ let adjustDebounceTimer = null;
  * 弹窗打开时，查询当前状态并更新 UI
  */
 function init() {
-  // 从存储中读取服务器地址
+  // 从存储中读取服务器地址和偏移量
   chrome.storage.local.get(['serverUrl', 'timeOffsetMs'], (result) => {
     serverUrlInput.value = result.serverUrl || 'ws://localhost:8080';
     const offset = result.timeOffsetMs || 0;
@@ -58,11 +64,11 @@ function init() {
     }
     if (response) {
       if (response.roomId) {
-        // 已在房间中
+        // 已在房间中，恢复身份
+        currentRole = response.role || 'host';
         showRoomView(response.roomId, response.peerCount);
         updateStatus('in-room', `已连接 - 房间 ${response.roomId}`);
       } else if (response.connected) {
-        // 已连接但未加入房间
         updateStatus('connected', '已连接');
       } else {
         updateStatus('disconnected', '未连接');
@@ -93,6 +99,17 @@ function showRoomView(room, count) {
   roomSection.classList.remove('hidden');
   roomName.textContent = room;
   peerCountEl.textContent = count || 1;
+
+  // 显示当前身份
+  if (currentRole === 'host') {
+    roleDisplay.textContent = '房主';
+    roleDisplay.className = 'value role-host-tag';
+    offsetSection.classList.add('hidden');
+  } else {
+    roleDisplay.textContent = '客人';
+    roleDisplay.className = 'value role-guest-tag';
+    offsetSection.classList.remove('hidden');
+  }
 }
 
 /**
@@ -127,9 +144,15 @@ joinBtn.addEventListener('click', () => {
     return;
   }
 
+  // 读取选中的身份
+  currentRole = document.querySelector('input[name="role"]:checked').value;
+
+  // 保存身份到 storage，供 content script 读取
+  chrome.storage.local.set({ syncRole: currentRole });
+
   chrome.runtime.sendMessage({
     type: 'JOIN_ROOM',
-    payload: { roomId: room }
+    payload: { roomId: room, role: currentRole }
   });
 });
 
@@ -147,6 +170,11 @@ roomInput.addEventListener('keydown', (e) => {
  */
 leaveBtn.addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'LEAVE_ROOM' });
+  chrome.storage.local.remove(['syncRole', 'timeOffsetMs']);
+  currentRole = 'host';
+  lastOffsetMs = 0;
+  offsetSlider.value = 0;
+  offsetInput.value = 0;
   showJoinView();
   updateStatus('connected', '已连接');
 });
@@ -195,7 +223,7 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-// ==================== 时间偏移量调节 ====================
+// ==================== 时间偏移量调节（仅客人可用） ====================
 
 /**
  * 保存偏移量到 storage 并同步滑块和输入框，同时实时调整本地视频进度
@@ -203,7 +231,6 @@ chrome.runtime.onMessage.addListener((message) => {
  * @param {'slider'|'input'} source - 触发源，避免重复赋值
  */
 function updateOffset(newMs, source) {
-  // 限制范围
   newMs = Math.max(-500, Math.min(500, newMs));
 
   // 记住这次滑动操作开始时的偏移量
@@ -218,11 +245,10 @@ function updateOffset(newMs, source) {
   chrome.storage.local.set({ timeOffsetMs: newMs });
 
   // 防抖：用户停止滑动 200ms 后，才发送一次总差值给 content script
-  // 避免连续快速滑动时频繁触发 seeked 事件导致同步回环
   if (adjustDebounceTimer) clearTimeout(adjustDebounceTimer);
   adjustDebounceTimer = setTimeout(() => {
     const totalDelta = newMs - slideStartOffsetMs;
-    slideStartOffsetMs = null; // 重置，准备下一次滑动
+    slideStartOffsetMs = null;
 
     if (totalDelta !== 0) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

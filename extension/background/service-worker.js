@@ -41,6 +41,9 @@ let reconnectTimer = null;
 /** @type {number} 当前房间内的在线人数 */
 let peerCount = 0;
 
+/** @type {string} 当前身份：'host' 或 'guest' */
+let currentRole = 'host';
+
 // ==================== WebSocket 连接管理 ====================
 
 /**
@@ -241,6 +244,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Popup 请求加入房间
     case 'JOIN_ROOM':
       roomId = message.payload.roomId;
+      currentRole = message.payload.role || 'host';
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         connect(); // 尚未连接，先连接再加入
       } else {
@@ -255,6 +259,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       roomId = null;
       peerCount = 0;
+      currentRole = 'host';
       break;
 
     // 同步事件（来自 content script），转发到服务器
@@ -273,7 +278,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         connected: ws && ws.readyState === WebSocket.OPEN,
         roomId: roomId,
         clientId: clientId,
-        peerCount: peerCount
+        peerCount: peerCount,
+        role: currentRole
       });
       return true; // 异步 sendResponse
 

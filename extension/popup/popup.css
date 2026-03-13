@@ -111,6 +111,62 @@ button:active {
   margin-top: 8px;
 }
 
+/* 身份选择器 */
+.role-selector {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.role-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  border: 2px solid #eee;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.role-option:has(input:checked) {
+  border-color: #00AEEC;
+  background: #f0faff;
+}
+
+.role-option input[type="radio"] {
+  display: none;
+}
+
+.role-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.role-host {
+  color: #00AEEC;
+}
+
+.role-guest {
+  color: #FB7299;
+}
+
+.role-desc {
+  font-size: 11px;
+  color: #999;
+}
+
+/* 房间内身份显示 */
+.value.role-host-tag {
+  color: #00AEEC;
+}
+
+.value.role-guest-tag {
+  color: #FB7299;
+}
+
 .btn-danger {
   background: #ff4d4f;
   color: #fff;

@@ -15,7 +15,7 @@
       <span id="status-text">未连接</span>
     </div>
 
-    <!-- 未加入房间时显示：输入房间ID -->
+    <!-- 未加入房间时显示：输入房间ID + 选择身份 -->
     <div id="join-section">
       <input
         type="text"
@@ -23,6 +23,18 @@
         placeholder="输入房间名（任意字符串）"
         maxlength="50"
       />
+      <div class="role-selector">
+        <label class="role-option">
+          <input type="radio" name="role" value="host" checked />
+          <span class="role-label role-host">房主</span>
+          <span class="role-desc">你的操作同步给对方</span>
+        </label>
+        <label class="role-option">
+          <input type="radio" name="role" value="guest" />
+          <span class="role-label role-guest">客人</span>
+          <span class="role-desc">接收对方的同步</span>
+        </label>
+      </div>
       <button id="join-btn">加入房间</button>
     </div>
 
@@ -34,19 +46,23 @@
           <span id="room-name" class="value"></span>
         </div>
         <div class="info-row">
+          <span class="label">身份：</span>
+          <span id="role-display" class="value"></span>
+        </div>
+        <div class="info-row">
           <span class="label">在线：</span>
           <span id="peer-count" class="value">1</span>
           <span class="label"> 人</span>
         </div>
       </div>
-      <!-- 时间偏移量调节 -->
-      <div class="offset-section">
+      <!-- 时间偏移量调节（仅客人可见） -->
+      <div id="offset-section" class="offset-section hidden">
         <label class="offset-label">时间偏移量（毫秒）</label>
         <input
           type="range"
           id="offset-slider"
-          min="-1000"
-          max="1000"
+          min="-500"
+          max="500"
           step="1"
           value="0"
         />
@@ -54,8 +70,8 @@
           <input
             type="number"
             id="offset-input"
-            min="-1000"
-            max="1000"
+            min="-500"
+            max="500"
             step="1"
             value="0"
           />
