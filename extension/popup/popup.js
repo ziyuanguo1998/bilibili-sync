@@ -29,6 +29,12 @@ const offsetInput = document.getElementById('offset-input');
 /** 记录上一次偏移量，用于计算差值 */
 let lastOffsetMs = 0;
 
+/** 滑动开始时的偏移量（用于计算一次滑动操作的总差值） */
+let slideStartOffsetMs = null;
+
+/** ADJUST_TIME 防抖定时器 */
+let adjustDebounceTimer = null;
+
 // ==================== 初始化 ====================
 
 /**
@@ -198,27 +204,37 @@ chrome.runtime.onMessage.addListener((message) => {
  */
 function updateOffset(newMs, source) {
   // 限制范围
-  newMs = Math.max(-1000, Math.min(1000, newMs));
+  newMs = Math.max(-500, Math.min(500, newMs));
 
-  // 计算与上次的差值，实时应用到视频进度
-  const deltaMs = newMs - lastOffsetMs;
+  // 记住这次滑动操作开始时的偏移量
+  if (slideStartOffsetMs === null) {
+    slideStartOffsetMs = lastOffsetMs;
+  }
+
   lastOffsetMs = newMs;
 
   if (source !== 'slider') offsetSlider.value = newMs;
   if (source !== 'input') offsetInput.value = newMs;
   chrome.storage.local.set({ timeOffsetMs: newMs });
 
-  // 向当前活动标签页的 content script 发送差值，实时调整视频进度
-  if (deltaMs !== 0) {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          type: 'ADJUST_TIME',
-          payload: { deltaMs }
-        }).catch(() => {});
-      }
-    });
-  }
+  // 防抖：用户停止滑动 200ms 后，才发送一次总差值给 content script
+  // 避免连续快速滑动时频繁触发 seeked 事件导致同步回环
+  if (adjustDebounceTimer) clearTimeout(adjustDebounceTimer);
+  adjustDebounceTimer = setTimeout(() => {
+    const totalDelta = newMs - slideStartOffsetMs;
+    slideStartOffsetMs = null; // 重置，准备下一次滑动
+
+    if (totalDelta !== 0) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'ADJUST_TIME',
+            payload: { deltaMs: totalDelta }
+          }).catch(() => {});
+        }
+      });
+    }
+  }, 200);
 }
 
 offsetSlider.addEventListener('input', () => {
