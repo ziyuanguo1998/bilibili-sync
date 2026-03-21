@@ -231,7 +231,7 @@ chrome.runtime.onMessage.addListener((message) => {
  * @param {'slider'|'input'} source - 触发源，避免重复赋值
  */
 function updateOffset(newMs, source) {
-  newMs = Math.max(-500, Math.min(500, newMs));
+  newMs = Math.max(-2000, Math.min(2000, newMs));
 
   // 记住这次滑动操作开始时的偏移量
   if (slideStartOffsetMs === null) {
