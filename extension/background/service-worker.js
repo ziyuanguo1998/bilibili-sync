@@ -23,9 +23,6 @@ let roomId = null;
 /** @type {string|null} 服务器分配的客户端ID */
 let clientId = null;
 
-/** @type {number|null} 当前活跃的B站标签页ID */
-let currentTabId = null;
-
 /** @type {number} 已尝试重连的次数（用于指数退避计算） */
 let reconnectAttempts = 0;
 
@@ -208,16 +205,22 @@ function handleServerMessage(message) {
 // ==================== 消息转发辅助函数 ====================
 
 /**
- * 将消息转发给当前活跃的B站标签页中的 content script
+ * 将消息转发给所有匹配的B站标签页中的 content script
+ * 通过 chrome.tabs.query 实时查询，不依赖缓存的 tabId，
+ * 避免 service worker 重启后丢失 tabId 导致消息转发失败
  * @param {object} message - 要转发的消息
  */
 function forwardToContentScript(message) {
-  if (currentTabId) {
-    chrome.tabs.sendMessage(currentTabId, message).catch((err) => {
-      // content script 可能还未加载或页面已关闭
-      console.warn('[转发] 无法发送到 content script:', err.message);
-    });
-  }
+  chrome.tabs.query({
+    url: [
+      'https://www.bilibili.com/video/*',
+      'https://www.bilibili.com/bangumi/play/*'
+    ]
+  }, (tabs) => {
+    for (const tab of tabs) {
+      chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+    }
+  });
 }
 
 /**
@@ -233,11 +236,6 @@ function notifyPopup(message) {
 // ==================== 接收内部消息（来自 content script 和 popup） ====================
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-
-  // 记录发送消息的标签页ID（content script 所在的B站页面）
-  if (sender.tab) {
-    currentTabId = sender.tab.id;
-  }
 
   switch (message.type) {
 
